@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import argparse
 import utils
+import time
 from models.vqvae import VQVAE
 
 parser = argparse.ArgumentParser()
@@ -65,9 +66,26 @@ results = {
 
 
 def train():
+    model.train()
+    # 【核心修改 1】在循环外面创建迭代器，只创建这一次！
+    data_iter = iter(training_loader)
+    
+    print(f"Model is on: {next(model.parameters()).device}")
 
     for i in range(args.n_updates):
-        (x, _) = next(iter(training_loader))
+        t0 = time.time()
+        
+        # 【核心修改 2】从同一个迭代器里拿数据，不重新开始
+        try:
+            (x, _) = next(data_iter)
+        except StopIteration:
+            # 如果一轮（Epoch）跑完了，重置迭代器继续跑
+            data_iter = iter(training_loader)
+            (x, _) = next(data_iter)
+            
+        t_data = time.time() - t0 # 记录取图时间
+
+        t1 = time.time()
         x = x.to(device)
         optimizer.zero_grad()
 
@@ -77,25 +95,18 @@ def train():
 
         loss.backward()
         optimizer.step()
+        
+        t_gpu = time.time() - t1 # 记录显卡干活时间
 
+        # 记录结果 (保持不变)
         results["recon_errors"].append(recon_loss.cpu().detach().numpy())
         results["perplexities"].append(perplexity.cpu().detach().numpy())
         results["loss_vals"].append(loss.cpu().detach().numpy())
-        results["n_updates"] = i
 
-        if i % args.log_interval == 0:
-            """
-            save model and print values
-            """
-            if args.save:
-                hyperparameters = args.__dict__
-                utils.save_model_and_results(
-                    model, results, hyperparameters, args.filename)
-
-            print('Update #', i, 'Recon Error:',
-                  np.mean(results["recon_errors"][-args.log_interval:]),
-                  'Loss', np.mean(results["loss_vals"][-args.log_interval:]),
-                  'Perplexity:', np.mean(results["perplexities"][-args.log_interval:]))
+        # 每 50 次 Update 打印一次真相
+        if i % 50 == 0:
+            print(f"Update {i} | 读图: {t_data:.4f}s | 显卡算力: {t_gpu:.4f}s | 显卡利用率估算: {t_gpu/(t_data+t_gpu):.1%}")
+            print(f"Recon Error: {np.mean(results['recon_errors'][-50:]):.4f}")
 
 
 if __name__ == "__main__":

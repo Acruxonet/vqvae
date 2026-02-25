@@ -59,14 +59,17 @@ def load_latent_block():
 
 
 def data_loaders(train_data, val_data, batch_size):
+    num_workers = 4
 
     train_loader = DataLoader(train_data,
                               batch_size=batch_size,
                               shuffle=True,
+                              num_workers=num_workers,
                               pin_memory=True)
     val_loader = DataLoader(val_data,
                             batch_size=batch_size,
                             shuffle=True,
+                            num_workers=num_workers,
                             pin_memory=True)
     return train_loader, val_loader
 
@@ -76,7 +79,7 @@ def load_data_and_data_loaders(dataset, batch_size):
         training_data, validation_data = load_cifar()
         training_loader, validation_loader = data_loaders(
             training_data, validation_data, batch_size)
-        x_train_var = np.var(training_data.train_data / 255.0)
+        x_train_var = np.var(training_data.data / 255.0)
 
     elif dataset == 'BLOCK':
         training_data, validation_data = load_block()
