@@ -52,3 +52,4 @@ if __name__ == "__main__":
     encoder = Encoder(40, 128, 3, 64)
     encoder_out = encoder(x)
     print('Encoder out shape:', encoder_out.shape)
+# hello 
